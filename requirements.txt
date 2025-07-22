@@ -1,8 +1,6 @@
 pandas
 numpy
-sklearn
+scikit-learn
 xgboost
-sklearn
 matplotlib
 yfinance
-datetime
