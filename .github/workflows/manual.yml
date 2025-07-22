@@ -28,7 +28,7 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add market_factors_10y.csv
+          git add gold_and_macro_data_final.csv
           git diff-index --quiet HEAD || git commit -m "Automated daily data update"
           git push
 
