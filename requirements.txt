@@ -1,13 +1,8 @@
 pandas
 numpy
-sklearn.model_selection
-sklearn.preprocessing
-sklearn.linear_model
-sklearn.ensemble
+sklearn
 xgboost
-sklearn.metrics
-matplotlib.pyplot
-sklearn.model_selection
-sklearn.pipeline
+sklearn
+matplotlib
 yfinance
 datetime
