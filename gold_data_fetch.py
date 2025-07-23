@@ -51,7 +51,7 @@ if raw_data_dict:
     df.rename(columns={'index': 'Date'}, inplace=True)
 
     # ตัดข้อมูลให้เหลือแค่ 10 ปีล่าสุด
-    cutoff_date = df['Date'].max() - pd.Timedelta(days=3650)
+    cutoff_date = df['Date'].max() - pd.Timedelta(days=2520)
     df = df[df['Date'] >= cutoff_date]
 
     # แสดงตัวอย่าง
