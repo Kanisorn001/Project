@@ -46,16 +46,19 @@ if raw_data_dict:
     # เติมข้อมูลที่ขาดหายไป (NaN) ด้วยข้อมูลของวันก่อนหน้า
     df.ffill(inplace=True)
 
-    # 1. ย้าย Date จาก Index มาเป็น Column ใหม่
+    # ย้าย Date จาก Index มาเป็น Column ใหม่
     df.reset_index(inplace=True)
     df.rename(columns={'index': 'Date'}, inplace=True)
 
+    # ตัดข้อมูลให้เหลือแค่ 10 ปีล่าสุด
+    cutoff_date = df['Date'].max() - pd.Timedelta(days=3650)
+    df = df[df['Date'] >= cutoff_date]
 
     # แสดงตัวอย่าง
     print("\n--- Sample of Combined Data (First 5 rows) ---")
-    df.head(5)
+    print(df.head(5))
 
-    # 3. บันทึกข้อมูลเป็น CSV โดยไม่เอารหัส Index (0,1,2,...) ติดไปด้วย
+    # บันทึกข้อมูลเป็น CSV โดยไม่เอารหัส Index (0,1,2,...) ติดไปด้วย
     df.to_csv("gold_and_macro_data_final.csv", index=False)
     print("\n✅ Data successfully saved to gold_and_macro_data_final.csv")
 
