@@ -66,7 +66,7 @@ if __name__ == "__main__":
         print("\n--- Sample of Combined Data (First 5 rows) ---")
         print(combined_df.head(5))
         
-        output_file = "gold.csv"
+        output_file = "gold_and_macro_data_final.csv"
         combined_df.to_csv(output_file, index=False)
         print(f"\n✅ Data successfully saved to {output_file}")
 
