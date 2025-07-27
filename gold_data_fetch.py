@@ -1,12 +1,12 @@
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+from fredapi import Fred 
 
-# กำหนดวันที่ย้อนหลัง 10 ปี
+# === กำหนดค่า YFinance ===
 end_date = datetime.today()
 start_date = end_date - timedelta(days=3650)
 
-# Key คือชื่อที่เราต้องการ และ Value คือ Ticker ที่ถูกต้อง
 symbols = {
     'Gold_Price_USD': 'GC=F',
     'Silver_Price_USD': 'SI=F',
@@ -14,53 +14,61 @@ symbols = {
     'SP500_Index': '^GSPC',
     'US_10Y_Treasury_Yield': '^TNX',
     'US_Dollar_Index_DXY': 'DX-Y.NYB',
-    'GLD_ETF_Price': 'GLD'
+    'Iron_Ore_Price': 'TIO=F'
 }
 
-# ดึงข้อมูล
-def fetch_data(symbols, start, end):
-    data = {}
-    print("Starting data fetch...")
-    for name, ticker in symbols.items():
-        print(f"Fetching: {name} ({ticker})")
-        try:
-            df = yf.download(ticker, start=start, end=end, progress=False)
-            
-            if not df.empty:
-                df = df[['Close']].rename(columns={'Close': name})
-                data[name] = df
-            else:
-                print(f"  Warning: No data returned for {name} ({ticker})")
+# === กำหนดค่า FRED ===
+# !!! แทนที่ 'YOUR_FRED_API_KEY' ด้วย API Key ของคุณ !!!
+FRED_API_KEY = 'c574e2410fc6100cbde48b33fcdfaf31'
+fred = Fred(api_key=FRED_API_KEY)
 
-        except Exception as e:
-            print(f"  Error fetching {name} ({ticker}): {e}")
-            
-    return data
+fred_series = {
+    'Inflation_CPI': 'CPIAUCSL'
+}
 
-raw_data_dict = fetch_data(symbols, start_date, end_date)
+# === ฟังก์ชันดึงข้อมูล ===
+def fetch_yahoo_data(symbols, start, end):
+    print("Fetching data from Yahoo Finance...")
+    df = yf.download(list(symbols.values()), start=start, end=end, progress=False)
+    if not df.empty:
+        df = df['Close'].rename(columns=dict(zip(symbols.values(), symbols.keys())))
+    return df
 
-# รวม DataFrames ทั้งหมดเข้าด้วยกัน
-if raw_data_dict:
-    df = pd.concat(raw_data_dict.values(), axis=1)
+# ----- ส่วนของฟังก์ชันที่ขาดไป -----
+def fetch_fred_data(series_id, start):
+    print(f"Fetching data from FRED for {series_id}...")
+    name = list(series_id.keys())[0]
+    sid = list(series_id.values())[0]
+    series = fred.get_series(sid, observation_start=start)
+    return pd.DataFrame(series, columns=[name])
+# --------------------------------
 
-    # เติมข้อมูลที่ขาดหายไป (NaN) ด้วยข้อมูลของวันก่อนหน้า
-    df.ffill(inplace=True)
+# === กระบวนการหลัก ===
+if __name__ == "__main__":
+    # 1. ดึงข้อมูลจากทั้งสองแหล่ง
+    df_yahoo = fetch_yahoo_data(symbols, start_date, end_date)
+    df_fred = fetch_fred_data(fred_series, start_date) # <-- บรรทัดนี้จะทำงานได้เมื่อมีฟังก์ชันแล้ว
 
-    # ย้าย Date จาก Index มาเป็น Column ใหม่
-    df.reset_index(inplace=True)
-    df.rename(columns={'index': 'Date'}, inplace=True)
+    if not df_yahoo.empty and not df_fred.empty:
+        # 2. รวม DataFrames
+        print("\nMerging Yahoo Finance and FRED data...")
+        combined_df = pd.merge(df_yahoo, df_fred, left_index=True, right_index=True, how='outer')
 
-    # ตัดข้อมูลให้เหลือแค่ 10 ปีล่าสุด
-    cutoff_date = df['Date'].max() - pd.Timedelta(days=3650)
-    df = df[df['Date'] >= cutoff_date]
+        # 3. เติมข้อมูลที่ขาดหายไป
+        combined_df.ffill(inplace=True)
+        combined_df.dropna(inplace=True)
 
-    # แสดงตัวอย่าง
-    print("\n--- Sample of Combined Data (First 5 rows) ---")
-    print(df.head(5))
-
-    # บันทึกข้อมูลเป็น CSV โดยไม่เอารหัส Index (0,1,2,...) ติดไปด้วย
-    df.to_csv("gold_and_macro_data_final.csv", index=False)
-    print("\n✅ Data successfully saved to gold_and_macro_data_final.csv")
+        # 4. ย้าย Date จาก Index มาเป็น Column
+        combined_df.reset_index(inplace=True)
+        combined_df.rename(columns={'index': 'Date'}, inplace=True)
+        
+        # 5. แสดงตัวอย่างและบันทึก
+        print("\n--- Sample of Combined Data (First 5 rows) ---")
+        print(combined_df.head(5))
+        
+        output_file = "gold.csv"
+        combined_df.to_csv(output_file, index=False)
+        print(f"\n✅ Data successfully saved to {output_file}")
 
 else:
-    print("\n❌ No data was fetched. The final DataFrame is empty.")
+    print("\n❌ Data fetching from one of the sources failed.")
