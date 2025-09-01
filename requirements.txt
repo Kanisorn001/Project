@@ -6,3 +6,5 @@ matplotlib
 yfinance
 fredapi
 streamlit
+plotly
+joblib
