@@ -1,89 +1,62 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+from datetime import timedelta
 
-# Page configuration
-st.set_page_config(page_title="Gold Price Forecasting Tool", page_icon="💰", layout="wide")
+# ตั้งค่าหน้าเว็บ Streamlit
+st.set_page_config(page_title="แดชบอร์ดราคาทองคำ", page_icon=":chart_with_upwards_trend:", layout="wide")
 
-# Sidebar - Title and file uploader
-st.sidebar.title("Gold Price Forecasting Tool")
-uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+# โหลดข้อมูลราคาทองคำจาก CSV
+df = pd.read_csv("gold_and_macro_data_final.csv", parse_dates=["Date"])
+df = df[["Date", "Gold_Price_USD"]]  # ใช้เฉพาะคอลัมน์วันที่และราคาทองคำ
 
-# Main page title
-st.title("Gold Price Forecasting Tool")
+# ดึงราคาทองคำล่าสุดและการเปลี่ยนแปลงจากวันก่อนหน้า
+latest_price = df["Gold_Price_USD"].iloc[-1]
+prev_price = df["Gold_Price_USD"].iloc[-2]
+price_diff = latest_price - prev_price
+percent_change = (price_diff / prev_price) * 100
 
-# Load data
-df = None
-default_data = False
-if uploaded_file is not None:
-    # Use the uploaded file
-    df = pd.read_csv(uploaded_file)
-else:
-    # If no file uploaded, try to load the default dataset
-    try:
-        df = pd.read_csv("gold_and_macro_data_final.csv")
-        default_data = True
-    except FileNotFoundError:
-        df = None
+# ส่วนหัวและการ์ดแสดงราคาทองคำล่าสุด
+st.title("📈 ราคาทองคำล่าสุด")
+st.metric(
+    label="ราคาทองคำล่าสุด (USD)",
+    value=f"${latest_price:,.2f}",
+    delta=f"{price_diff:,.2f} ({percent_change:.2f}%)"
+)
 
-# If data is available, display tabs
-if df is not None:
-    # Notify user of data source
-    if default_data:
-        st.sidebar.info("Using example dataset (gold_and_macro_data_final.csv).")
-    else:
-        st.sidebar.success(f"Uploaded file `{uploaded_file.name}` successfully!")
-    # Preprocess data (convert Date column to datetime, if present)
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df = df.sort_values('Date')
-    # Create tabs for different sections
-    tab1, tab2, tab3, tab4 = st.tabs(["Data Preview", "Summary Statistics", "Visualizations", "Forecast"])
-    with tab1:
-        st.subheader("Data Preview")
-        st.write("Showing the first 5 rows of the dataset:")
-        st.dataframe(df.head())
-    with tab2:
-        st.subheader("Summary Statistics")
-        # Display dataset dimensions
-        num_rows, num_cols = df.shape
-        st.write(f"**Dataset dimensions:** {num_rows} rows, {num_cols} columns")
-        # Compute summary stats for numeric columns
-        numeric_df = df.select_dtypes(include='number')
-        if not numeric_df.empty:
-            means = numeric_df.mean().round(2)
-            medians = numeric_df.median().round(2)
-            missing = numeric_df.isna().sum()
-            summary_df = pd.DataFrame({
-                'Mean': means,
-                'Median': medians,
-                'Missing Values': missing
-            })
-            st.table(summary_df)
-        else:
-            st.write("No numeric columns found in the dataset.")
-    with tab3:
-        st.subheader("Visualizations")
-        # Line chart of Gold Price over time
-        if 'Date' in df.columns and 'Gold_Price_USD' in df.columns:
-            fig_line = px.line(df, x='Date', y='Gold_Price_USD', title="Gold Price Over Time")
-            st.plotly_chart(fig_line, use_container_width=True)
-        else:
-            st.write("Unable to plot Gold Price over time (Date or Gold_Price_USD column is missing).")
-        # Correlation heatmap for numeric features
-        numeric_df = df.select_dtypes(include='number')
-        if not numeric_df.empty:
-            corr = numeric_df.corr()
-            fig_corr = px.imshow(
-                corr, text_auto=True, color_continuous_scale="RdBu", zmin=-1, zmax=1,
-                title="Correlation Heatmap"
-            )
-            st.plotly_chart(fig_corr, use_container_width=True)
-        else:
-            st.write("Unable to display correlation heatmap (no numeric data).")
-    with tab4:
-        st.subheader("Forecast")
-        st.info("Forecasting functionality is not implemented yet. Stay tuned for future updates!")
-else:
-    # No data available
-    st.info("Please upload a CSV file from the sidebar to proceed.")
+# ตัวเลือกช่วงเวลาสำหรับกรองข้อมูล
+period_options = ["7 วัน", "30 วัน", "90 วัน", "ทั้งหมด", "กำหนดช่วงเอง"]
+period = st.radio("เลือกช่วงเวลา:", period_options, index=3, horizontal=True)
+
+# คำนวณช่วงวันที่ตามตัวเลือกที่ผู้ใช้เลือก
+end_date = df["Date"].max()
+start_date = df["Date"].min()
+if period == "7 วัน":
+    start_date = end_date - timedelta(days=6)
+elif period == "30 วัน":
+    start_date = end_date - timedelta(days=29)
+elif period == "90 วัน":
+    start_date = end_date - timedelta(days=89)
+elif period == "ทั้งหมด":
+    start_date = df["Date"].min()
+elif period == "กำหนดช่วงเอง":
+    date_range = st.date_input(
+        "เลือกช่วงวันที่:",
+        value=(df["Date"].min(), df["Date"].max())
+    )
+    if len(date_range) == 2:
+        start_date, end_date = date_range[0], date_range[1]
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
+
+# กรองข้อมูลตามช่วงวันที่ที่กำหนด
+df_filtered = df[(df["Date"] >= start_date) & (df["Date"] <= end_date)]
+
+# แสดงกราฟและตารางในรูปแบบคอลัมน์เคียงกัน
+col1, col2 = st.columns([2, 1])
+with col1:
+    st.subheader("แนวโน้มราคาทองคำย้อนหลัง")
+    st.line_chart(df_filtered, x="Date", y="Gold_Price_USD", use_container_width=True)
+with col2:
+    st.subheader("ตารางราคาทองคำย้อนหลัง")
+    st.dataframe(df_filtered.sort_values("Date", ascending=False),
+                 hide_index=True, width="stretch")
