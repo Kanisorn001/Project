@@ -10,4 +10,5 @@ plotly
 joblib
 fastapi
 uvicorn[standard]
+statsmodels
 
