@@ -8,3 +8,6 @@ fredapi
 streamlit
 plotly
 joblib
+fastapi
+uvicorn[standard]
+
